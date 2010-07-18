@@ -1,0 +1,40 @@
+#!/usr/bin/make -f
+
+SHELL := sh -e
+
+%:
+	dh --with quilt ${@}
+
+override_dh_auto_install:
+	install -D -m 0755 traceroute/traceroute debian/traceroute/usr/bin/traceroute.db
+	install -D -m 0644 traceroute/traceroute.8 debian/traceroute/usr/share/man/man1/traceroute.db.1
+
+	install -D -m 0755 wrappers/traceroute-nanog debian/traceroute/usr/bin/traceroute-nanog
+	ln -s traceroute.db.1.gz debian/traceroute/usr/share/man/man1/traceroute-nanog.1.gz
+
+	install -D -m 0644 libsupp/libsupp.a debian/traceroute/usr/lib/libsupp.a
+	install -D -m 0644 libsupp/clif.h debian/traceroute/usr/include/clif.h
+
+	# Installing symlinks
+	mkdir -p debian/traceroute/usr/share/man/man1
+
+	for ALTERNATIVE in traceroute6; \
+	do \
+		ln -s traceroute.db debian/traceroute/usr/bin/$$ALTERNATIVE.db; \
+		ln -s traceroute.db.1.gz debian/traceroute/usr/share/man/man1/$$ALTERNATIVE.db.1.gz; \
+	done
+
+	# Installing wrappers
+	for WRAPPER in lft traceproto; \
+	do \
+		install -D -m 0755 wrappers/$$WRAPPER debian/traceroute/usr/bin/$$WRAPPER.db; \
+		ln -s traceroute.db.1.gz debian/traceroute/usr/share/man/man1/$$WRAPPER.db.1.gz; \
+	done
+
+	mkdir -p debian/traceroute/usr/share/man/man8
+
+	for WRAPPER in tcptraceroute; \
+	do \
+		install -D -m 0755 wrappers/$$WRAPPER debian/traceroute/usr/sbin/$$WRAPPER.db; \
+		ln -s ../man1/traceroute.db.1.gz debian/traceroute/usr/share/man/man8/$$WRAPPER.db.8.gz; \
+	done
