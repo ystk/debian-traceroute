@@ -98,6 +98,7 @@ static unsigned int dst_port_seq = 0;
 static unsigned int tos = 0;
 static unsigned int flow_label = 0;
 static int noroute = 0;
+static unsigned int fwmark = 0;
 static int packet_len = -1;
 static double wait_secs = DEF_WAIT_SECS;
 static double send_secs = DEF_SEND_SECS;
@@ -142,6 +143,14 @@ void error (const char *str) {
 	perror (str);
 
 	exit (1);
+}
+
+void error_or_perm (const char *str) {
+
+	if (errno == EPERM)
+		fprintf (stderr, "You have no enough privileges to use "
+				"this traceroute method.");
+	error (str);
 }
 
 
@@ -449,7 +458,8 @@ static CLIF_option option_list[] = {
 			add_gateway, 0, 0, CLIF_SEVERAL },
 	{ "I", "icmp", 0, "Use ICMP ECHO for tracerouting",
 			set_module, "icmp", 0, 0 },
-	{ "T", "tcp", 0, "Use TCP SYN for tracerouting",
+	{ "T", "tcp", 0, "Use TCP SYN for tracerouting (default "
+			"port is " _TEXT(DEF_TCP_PORT) ")",
 			set_module, "tcp", 0, 0 },
 	{ "i", "interface", "device", "Specify a network interface "
 			    "to operate with",
@@ -516,6 +526,10 @@ static CLIF_option option_list[] = {
 	{ 0, "sport", "num", "Use source port %s for outgoing packets. "
 			    "Implies `-N 1'",
 			    set_port, &src_port, 0, CLIF_EXTRA },
+#ifdef SO_MARK
+	{ 0, "fwmark", "num", "Set firewall mark for outgoing packets",
+			    CLIF_set_uint, &fwmark, 0, 0 },
+#endif
 	{ "U", "udp", 0, "Use UDP to particular port for tracerouting "
 			    "(instead of increasing the port per each probe), "
 			    "default port is " _TEXT(DEF_UDP_PORT),
@@ -566,10 +580,6 @@ int main (int argc, char *argv[]) {
 	ops = tr_get_module (module);
 	if (!ops)  ex_error ("Unknown traceroute module %s", module);
 
-	if (!ops->user && geteuid () != 0)
-	    ex_error ("The specified type of tracerouting "
-			"is allowed for superuser only");
-
 
 	if (!first_hop || first_hop > max_hops)
 		ex_error ("first hop out of range");
@@ -616,7 +626,8 @@ int main (int argc, char *argv[]) {
 	if (mtudisc) {
 	    dontfrag = 1;
 	    sim_probes = 1;
-	    packet_len = MAX_PACKET_LEN;
+	    if (packet_len < 0)
+		    packet_len = MAX_PACKET_LEN;
 	}
 
 	if (packet_len < 0) {
@@ -708,7 +719,7 @@ static void print_probe (probe *pb) {
 
 		if (!np ||
 		    !equal_addr (&p->res, &pb->res) ||
-		    (extension && p->ext != pb->ext &&
+		    (p->ext != pb->ext &&
 			!(p->ext && pb->ext && !strcmp (p->ext, pb->ext))) ||
 		    (backward && p->recv_ttl != pb->recv_ttl)
 		)  prn = 1;
@@ -1007,6 +1018,15 @@ void tune_socket (int sk) {
 	}
 
 
+#ifdef SO_MARK
+	if (fwmark) {
+	    if (setsockopt (sk, SOL_SOCKET, SO_MARK,
+					&fwmark, sizeof (fwmark)) < 0
+	    )  error ("setsockopt SO_MARK");
+	}
+#endif
+
+
 	if (rtbuf && rtbuf_len) {
 	    if (af == AF_INET) {
 		if (setsockopt (sk, IPPROTO_IP, IP_OPTIONS,
@@ -1244,6 +1264,8 @@ void recv_reply (int sk, int err, check_reply_t check_reply) {
 	char *bufp = buf;
 	char control[1024];
 	struct cmsghdr *cm;
+	double recv_time = 0;
+	int recv_ttl = 0;
 	struct sock_extended_err *ee = NULL;
 
 
@@ -1290,41 +1312,43 @@ void recv_reply (int sk, int err, check_reply_t check_reply) {
 	if (!pb)  return;
 
 
-	if (!err)
-	    memcpy (&pb->res, &from, sizeof (pb->res));
-
-
 	/*  Parse CMSG stuff   */
 
 	for (cm = CMSG_FIRSTHDR (&msg); cm; cm = CMSG_NXTHDR (&msg, cm)) {
+	    void *ptr = CMSG_DATA (cm);
 
 	    if (cm->cmsg_level == SOL_SOCKET) {
 
 		if (cm->cmsg_type == SO_TIMESTAMP) {
-		    struct timeval *tv = (struct timeval *) CMSG_DATA (cm);
+		    struct timeval *tv = (struct timeval *) ptr;
 
-		    pb->recv_time = tv->tv_sec + tv->tv_usec / 1000000.;
+		    recv_time = tv->tv_sec + tv->tv_usec / 1000000.;
 		}
 	    }
 	    else if (cm->cmsg_level == SOL_IP) {
 
 		if (cm->cmsg_type == IP_TTL)
-			pb->recv_ttl = *((int *) CMSG_DATA (cm));
+			recv_ttl = *((int *) ptr);
 		else if (cm->cmsg_type == IP_RECVERR) {
 
-		    ee = (struct sock_extended_err *) CMSG_DATA (cm);
+		    ee = (struct sock_extended_err *) ptr;
 
 		    if (ee->ee_origin != SO_EE_ORIGIN_ICMP)
 			    ee = NULL;
+
+		    /*  dgram icmp sockets might return extra things...  */
+		    if (ee->ee_type == ICMP_SOURCE_QUENCH ||
+			ee->ee_type == ICMP_REDIRECT
+		    )  return;
 		}
 	    }
 	    else if (cm->cmsg_level == SOL_IPV6) {
 
 		if (cm->cmsg_type == IPV6_HOPLIMIT)
-			pb->recv_ttl = *((int *) CMSG_DATA (cm));
+			recv_ttl = *((int *) ptr);
 		else if (cm->cmsg_type == IPV6_RECVERR) {
 
-		    ee = (struct sock_extended_err *) CMSG_DATA (cm);
+		    ee = (struct sock_extended_err *) ptr;
 
 		    if (ee->ee_origin != SO_EE_ORIGIN_ICMP6)
 			    ee = NULL;
@@ -1332,14 +1356,21 @@ void recv_reply (int sk, int err, check_reply_t check_reply) {
 	    }
 	}
 
+	if (!recv_time)
+		recv_time = get_time ();
+
+
+	if (!err)
+	    memcpy (&pb->res, &from, sizeof (pb->res));
+
+	pb->recv_time = recv_time;
+
+	pb->recv_ttl = recv_ttl;
+
 	if (ee) {
 	    memcpy (&pb->res, SO_EE_OFFENDER (ee), sizeof(pb->res));
 	    parse_icmp_res (pb, ee->ee_type, ee->ee_code, ee->ee_info);
 	}
-
-
-	if (!pb->recv_time)
-	    pb->recv_time = get_time ();
 
 
 	if (ee &&
