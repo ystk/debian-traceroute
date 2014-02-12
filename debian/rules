@@ -2,8 +2,10 @@
 
 SHELL := sh -e
 
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
 %:
-	dh --with quilt ${@}
+	dh ${@}
 
 override_dh_auto_install:
 	install -D -m 0755 traceroute/traceroute debian/traceroute/usr/bin/traceroute.db
@@ -18,23 +20,26 @@ override_dh_auto_install:
 	# Installing symlinks
 	mkdir -p debian/traceroute/usr/share/man/man1
 
-	for ALTERNATIVE in traceroute6; \
+	for _ALTERNATIVE in traceroute6; \
 	do \
-		ln -s traceroute.db debian/traceroute/usr/bin/$$ALTERNATIVE.db; \
-		ln -s traceroute.db.1.gz debian/traceroute/usr/share/man/man1/$$ALTERNATIVE.db.1.gz; \
+		ln -s traceroute.db debian/traceroute/usr/bin/$${_ALTERNATIVE}.db; \
+		ln -s traceroute.db.1.gz debian/traceroute/usr/share/man/man1/$${_ALTERNATIVE}.db.1.gz; \
 	done
 
 	# Installing wrappers
-	for WRAPPER in lft traceproto; \
+	for _WRAPPER in lft traceproto; \
 	do \
-		install -D -m 0755 wrappers/$$WRAPPER debian/traceroute/usr/bin/$$WRAPPER.db; \
-		ln -s traceroute.db.1.gz debian/traceroute/usr/share/man/man1/$$WRAPPER.db.1.gz; \
+		install -D -m 0755 wrappers/$${_WRAPPER} debian/traceroute/usr/bin/$${_WRAPPER}.db; \
+		ln -s traceroute.db.1.gz debian/traceroute/usr/share/man/man1/$${_WRAPPER}.db.1.gz; \
 	done
 
 	mkdir -p debian/traceroute/usr/share/man/man8
 
-	for WRAPPER in tcptraceroute; \
+	for _WRAPPER in tcptraceroute; \
 	do \
-		install -D -m 0755 wrappers/$$WRAPPER debian/traceroute/usr/sbin/$$WRAPPER.db; \
-		ln -s ../man1/traceroute.db.1.gz debian/traceroute/usr/share/man/man8/$$WRAPPER.db.8.gz; \
+		install -D -m 0755 wrappers/$${_WRAPPER} debian/traceroute/usr/sbin/$${_WRAPPER}.db; \
+		ln -s ../man1/traceroute.db.1.gz debian/traceroute/usr/share/man/man8/$${_WRAPPER}.db.8.gz; \
 	done
+
+override_dh_builddeb:
+	dh_builddeb -- -Zxz -z9

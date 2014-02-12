@@ -1,17 +1,13 @@
 Source: traceroute
 Section: net
 Priority: important
-Maintainer: Daniel Baumann <daniel@lists.debian-maintainers.org>
-Uploaders: Daniel Baumann <daniel@debian.org>
-Build-Depends: debhelper (>= 7.0.50~), quilt (>= 0.46-7)
-Standards-Version: 3.9.0
+Maintainer: Daniel Baumann <daniel.baumann@progress-technologies.net>
+Build-Depends: debhelper (>= 9)
+Standards-Version: 3.9.3
 Homepage: http://traceroute.sourceforge.net/
-Vcs-Browser: http://git.debian-maintainers.org/?p=daniel/traceroute.git
-Vcs-Git: git://git.debian-maintainers.org/git/daniel/traceroute.git
 
 Package: traceroute
 Architecture: any
-Conflicts: traceroute-nanog (<< 1:2.0.13-3)
 Depends: ${misc:Depends}, ${shlibs:Depends}
 Description: Traces the route taken by packets over an IPv4/IPv6 network
  The traceroute utility displays the route used by IP packets on their way to a
@@ -23,14 +19,3 @@ Description: Traces the route taken by packets over an IPv4/IPv6 network
  .
  Install traceroute if you need a tool for diagnosing network connectivity
  problems.
-
-Package: traceroute-nanog
-Priority: extra
-Architecture: all
-Depends: ${misc:Depends}, traceroute
-Description: Traces the route taken by packets over an IP network (transitional package)
- Package to ease upgrading from older traceroute-nanog packages to the new
- traceroute package.
- .
- This package can be purged at anytime once the traceroute package has been
- installed.

@@ -1,2 +1,0 @@
-traceroute: command-with-path-in-maintainer-script postinst:8 /usr/bin/traceroute
-traceroute: command-with-path-in-maintainer-script postinst:10 /usr/bin/traceroute
