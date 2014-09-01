@@ -4,15 +4,17 @@ Upstream-Contact: traceroute-devel@lists.sourceforge.net
 Source: http://sourceforge.net/projects/traceroute/files/
 
 Files: *
-Copyright: 2006-2011 Dmitry K. Butskoy <Dmitry@Butskoy.name>
+Copyright: 2006-2012 Dmitry K. Butskoy <Dmitry@Butskoy.name>
 License: GPL-2+
 
 Files: libsupp/*
-Copyright: 2006-2011 Dmitry K. Butskoy <Dmitry@Butskoy.name>
+Copyright: 2006-2012 Dmitry K. Butskoy <Dmitry@Butskoy.name>
 License: LGPL-2.1+
 
 Files: debian/*
-Copyright: 2007-2012 Daniel Baumann <daniel.baumann@progress-technologies.net>
+Copyright: 2014-     Laszlo Boszormenyi (GCS) <gcs@debian.org>,
+ 2013-2014 Luk Claes <luk@debian.org>,
+ 2007-2012 Daniel Baumann <mail@daniel-baumann.ch>
 License: GPL-2+
 
 License: GPL-2+
